@@ -56,3 +56,12 @@ func (p *ProofOfWork) Run() (int, []byte) {
 	fmt.Println()
 	return nonce, hash[:]
 }
+
+func (p *ProofOfWork) Validate() bool {
+	var hashInt big.Int
+
+	data := p.concatData(p.block.Nonce)
+	hash := sha256.Sum256(data)
+	hashInt.SetBytes(hash[:])
+	return hashInt.Cmp(p.target) == -1 // hash is valid if hashInt < target
+}
