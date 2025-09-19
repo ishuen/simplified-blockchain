@@ -5,20 +5,38 @@ This is a practice project based on the tutorial [Building Blockchain in Go](htt
 
 ## CLI interface usage
 
-- Add Block
-    - Add a new block with specified data
-    ```
-    // Syntax
-    go run . addblock -data "<data>"
+- Get Balance
+    - Get balance of the specified address
+    - syntax: `getbalance -address <ADDRESS>`
+      - Shows the balance of the specified address.
+      ```
+      go run . getbalance -address 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
 
-    // Sample execution
-    go run . addblock -data "send 1 BTC to Alice"
+      // Sample output
+      Balance of '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa': 8
+      ```
+
+- Create Blockchain
+    - Create a blockchain and send genesis block reward to the specified address
+    - syntax: `createblockchain -address <ADDRESS>`
+    ```
+    go run . createblockchain -address 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
     
     // Sample output
-    Mining the block containing "send 1 wld to eric"
-    00000039eb5f8a5c6254013ae5a6d11ff5a0b9d0ccb7a064b1b945a32b98fec1
-    Successfully added a new block.
+    000000e5c2d2333a60f10e136b6c16aa38618080ff5b1ff4c9f968a2463a08dc
+    Done!
     ```
+
+- Send
+    - Send a certain amount of coins from one address to the other address
+    - syntax: `send -from <FROM_ADDRESS> -to <TO_ADDRESS> -amount <AMOUNT>`
+    ```
+    go run . send -from 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa -to 9B1zP2wP5QGefi2DMetFmL49Lmv7viDfbB -amount 2
+    // Sample output
+    0000002e266352367cb319d073c8515ed10b2cdf01482b8e77b934e95910bd67
+    Success!
+    ```
+
 - Print Chain
     - Print chain blocks from newest to oldest
     - When there is no blockchain, it creates a new one with genesis block
