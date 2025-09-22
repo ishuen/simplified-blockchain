@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"encoding/hex"
@@ -13,7 +13,7 @@ const blocksBucket = "blocks"
 
 type Blockchain struct {
 	tip []byte
-	db  *bolt.DB
+	Db  *bolt.DB
 }
 
 type BlockchainIterator struct {
@@ -23,7 +23,7 @@ type BlockchainIterator struct {
 
 func (bc *Blockchain) AddBlock(transactions []*Transaction) {
 	var lastHash []byte
-	err := bc.db.View(func(tx *bolt.Tx) error {
+	err := bc.Db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blocksBucket))
 		lastHash = b.Get([]byte("l"))
 		return nil
@@ -33,7 +33,7 @@ func (bc *Blockchain) AddBlock(transactions []*Transaction) {
 	}
 
 	newBlock := NewBlock(transactions, lastHash)
-	err = bc.db.Update(func(tx *bolt.Tx) error {
+	err = bc.Db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blocksBucket))
 		err := b.Put(newBlock.Hash, newBlock.Serialize())
 		if err != nil {
@@ -201,7 +201,7 @@ func CreateBlockchain(address string) *Blockchain {
 }
 
 func (bc *Blockchain) Iterator() *BlockchainIterator {
-	return &BlockchainIterator{bc.tip, bc.db}
+	return &BlockchainIterator{bc.tip, bc.Db}
 	/*
 	   Choosing a tip means "voting" for a blockchain.
 	   After getting a tip we can reconstruct the whole blockchain.

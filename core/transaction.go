@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"bytes"
@@ -14,8 +14,8 @@ const subsidy = 10 // amound of reward for mining a block
 type Transaction struct {
 	ID []byte
 	/*
-		Inputs of a new transaction reference outputs of a previous transaction.
-		In one transaction, inputs can reference outputs from multiple transactions.
+	   Inputs of a new transaction reference outputs of a previous transaction.
+	   In one transaction, inputs can reference outputs from multiple transactions.
 	*/
 	Vin  []TXInput
 	Vout []TXOutput
