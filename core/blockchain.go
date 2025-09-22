@@ -16,11 +16,6 @@ type Blockchain struct {
 	Db  *bolt.DB
 }
 
-type BlockchainIterator struct {
-	currentHash []byte
-	db          *bolt.DB
-}
-
 func (bc *Blockchain) AddBlock(transactions []*Transaction) {
 	var lastHash []byte
 	err := bc.Db.View(func(tx *bolt.Tx) error {
@@ -137,7 +132,8 @@ func dbExists() bool {
 	return true
 }
 
-func NewBlockchain(address string) *Blockchain {
+// Returns a Blockchain with the tip pointing to the last block
+func GetBlockchain(address string) *Blockchain {
 	if !dbExists() {
 		fmt.Println("No existing blockchain found. Create one first.")
 		os.Exit(1)
@@ -161,6 +157,7 @@ func NewBlockchain(address string) *Blockchain {
 	return &Blockchain{tip, db}
 }
 
+// Creates a new blockchain DB
 func CreateBlockchain(address string) *Blockchain {
 	if dbExists() {
 		fmt.Println("Blockchain already exists.")
@@ -184,6 +181,7 @@ func CreateBlockchain(address string) *Blockchain {
 			if err != nil {
 				return err
 			}
+			// l: last hash
 			err = b.Put([]byte("l"), genesis.Hash)
 			if err != nil {
 				return err
@@ -207,19 +205,4 @@ func (bc *Blockchain) Iterator() *BlockchainIterator {
 	   After getting a tip we can reconstruct the whole blockchain.
 	   So a tip is a kind of an identifier of a blockchain.
 	*/
-}
-
-func (i *BlockchainIterator) Next() *Block {
-	var block *Block
-	err := i.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(blocksBucket))
-		encodedBlock := b.Get(i.currentHash)
-		block = DeserializeBlock(encodedBlock)
-		return nil
-	})
-	if err != nil {
-		panic(err)
-	}
-	i.currentHash = block.PrevBlockHash
-	return block
 }

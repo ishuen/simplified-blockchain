@@ -6,7 +6,7 @@ import (
 )
 
 func (cli *CLI) getBalance(address string) {
-	bc := core.NewBlockchain(address)
+	bc := core.GetBlockchain(address)
 	defer bc.Db.Close()
 	balance := 0
 	UTXOs := bc.FindUTXO(address)

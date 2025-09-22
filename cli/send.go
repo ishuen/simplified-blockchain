@@ -6,7 +6,7 @@ import (
 )
 
 func (cli *CLI) send(from, to string, amount int) {
-	bc := core.NewBlockchain(from)
+	bc := core.GetBlockchain(from)
 	defer bc.Db.Close()
 	tx := core.NewUTXOTransaction(from, to, amount, bc)
 	bc.AddBlock([]*core.Transaction{tx})
