@@ -1,9 +1,7 @@
 package core
 
 import (
-	"bytes"
-	"crypto/elliptic"
-	"encoding/gob"
+	"encoding/json"
 	"os"
 )
 
@@ -45,28 +43,21 @@ func (ws *Wallets) LoadFromFile() error {
 	if err != nil {
 		return err
 	}
-	var wallets Wallets
-	gob.Register(elliptic.P256())
-	decoder := gob.NewDecoder(bytes.NewReader(fileContent))
-	err = decoder.Decode(&wallets)
+	err = json.Unmarshal(fileContent, ws)
 	if err != nil {
-		return err
+		panic(err)
 	}
-	ws.Wallets = wallets.Wallets
 	return nil
 }
 
 func (ws Wallets) SaveToFile() error {
-	var content bytes.Buffer
-	gob.Register(elliptic.P256())
-	encoder := gob.NewEncoder(&content)
-	err := encoder.Encode(ws)
+	jsonData, err := json.Marshal(ws)
 	if err != nil {
 		return err
 	}
 
 	// file mode 0644: owner can read/write, group and others can read
-	err = os.WriteFile(walletFile, content.Bytes(), 0644)
+	err = os.WriteFile(walletFile, jsonData, 0644)
 	if err != nil {
 		return err
 	}
