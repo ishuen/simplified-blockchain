@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"fmt"
-	"log"
 )
 
 const subsidy = 10 // amound of reward for mining a block
@@ -25,36 +24,56 @@ func (tx *Transaction) IsCoinbase() bool {
 	return len(tx.Vin) == 1 && len(tx.Vin[0].Txid) == 0 && tx.Vin[0].Vout == -1
 }
 
-func (tx *Transaction) SetID() {
+func (tx *Transaction) Serialize() []byte {
 	var encoded bytes.Buffer
-	var hash [32]byte
-
 	encoder := gob.NewEncoder(&encoded)
 	err := encoder.Encode(tx)
 	if err != nil {
 		panic(err)
 	}
-	hash = sha256.Sum256(encoded.Bytes())
-	tx.ID = hash[:]
+	return encoded.Bytes()
+}
+
+func (tx *Transaction) Hash() []byte {
+	var hash [32]byte
+
+	(*tx).ID = []byte{}
+	hash = sha256.Sum256(tx.Serialize())
+	return hash[:]
 }
 
 type TXInput struct {
 	Txid      []byte // ID of the transaction containing the output we want to reference
 	Vout      int    // index of the output in the previous transaction
-	Signature string // in a real blockchain, this would be a digital signature
+	Signature []byte
+	PublicKey []byte
 }
 
-func (in *TXInput) CanUnlockOutputWith(unlockingData string) bool {
-	return in.Signature == unlockingData
+func (in *TXInput) UsesKey(publicKeyHash []byte) bool {
+	lockingHash := HashPubKey(in.PublicKey)
+	return bytes.Equal(lockingHash, publicKeyHash)
 }
 
 type TXOutput struct {
-	Value  int    // amount of coins
-	PubKey string // in a real blockchain, this would be a hash of the recipient's public key
+	Value      int // amount of coins
+	PubKeyHash []byte
 }
 
-func (out *TXOutput) CanBeUnlockedWith(unlockingData string) bool {
-	return out.PubKey == unlockingData
+func (out *TXOutput) Lock(address []byte) {
+	publicKeyHash := Base58Decode(address)
+	// remove version and checksum
+	publicKeyHash = publicKeyHash[1 : len(publicKeyHash)-addressChecksumLen]
+	out.PubKeyHash = publicKeyHash
+}
+
+func (out *TXOutput) isLockedWithKey(publicKeyHash []byte) bool {
+	return bytes.Equal(out.PubKeyHash, publicKeyHash)
+}
+
+func NewTXOutput(value int, address string) *TXOutput {
+	txo := &TXOutput{value, nil}
+	txo.Lock([]byte(address))
+	return txo
 }
 
 /*
@@ -65,10 +84,10 @@ func NewCoinbaseTX(to, data string) *Transaction {
 	if data == "" {
 		data = fmt.Sprintf("Reward to '%s'", to)
 	}
-	txin := TXInput{[]byte{}, -1, data} // coinbase has no previous transaction
-	txout := TXOutput{subsidy, to}
-	tx := Transaction{nil, []TXInput{txin}, []TXOutput{txout}}
-	tx.SetID()
+	txin := TXInput{[]byte{}, -1, nil, []byte(data)} // coinbase has no previous transaction
+	txout := NewTXOutput(subsidy, to)
+	tx := Transaction{nil, []TXInput{txin}, []TXOutput{*txout}}
+	tx.ID = tx.Hash()
 	return &tx
 }
 
@@ -76,9 +95,16 @@ func NewUTXOTransaction(from, to string, amount int, bc *Blockchain) *Transactio
 	var inputs []TXInput
 	var outputs []TXOutput
 
-	acc, validOutputs := bc.FindSpendableOutputs(from, amount)
+	wallets, err := NewWallets()
+	if err != nil {
+		panic(err)
+	}
+
+	wallet := wallets.GetWallet(from)
+	publicKeyHash := HashPubKey(wallet.PublicKey)
+	acc, validOutputs := bc.FindSpendableOutputs(publicKeyHash, amount)
 	if acc < amount {
-		log.Panic("ERROR: Not enough funds")
+		panic("ERROR: Not enough funds")
 	}
 
 	// Build a list of inputs
@@ -88,18 +114,18 @@ func NewUTXOTransaction(from, to string, amount int, bc *Blockchain) *Transactio
 			panic(err)
 		}
 		for _, out := range outs {
-			input := TXInput{txID, out, from}
+			input := TXInput{txID, out, nil, wallet.PublicKey}
 			inputs = append(inputs, input)
 		}
 	}
 
 	// Build a list of outputs
-	outputs = append(outputs, TXOutput{amount, to})
+	outputs = append(outputs, *NewTXOutput(amount, to))
 	if acc > amount {
-		outputs = append(outputs, TXOutput{acc - amount, from}) // a change output
+		outputs = append(outputs, *NewTXOutput(acc-amount, from)) // a change output
 	}
 
 	tx := Transaction{nil, inputs, outputs}
-	tx.SetID()
+	tx.ID = tx.Hash()
 	return &tx
 }
