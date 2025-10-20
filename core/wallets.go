@@ -5,6 +5,8 @@ import (
 	"os"
 )
 
+const walletFile = "wallet.dat"
+
 type Wallets struct {
 	Wallets map[string]*Wallet
 }

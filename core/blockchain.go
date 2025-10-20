@@ -1,6 +1,8 @@
 package core
 
 import (
+	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -16,8 +18,15 @@ type Blockchain struct {
 	Db  *bolt.DB
 }
 
-func (bc *Blockchain) AddBlock(transactions []*Transaction) {
+func (bc *Blockchain) MineBlock(transactions []*Transaction) {
 	var lastHash []byte
+
+	for _, tx := range transactions {
+		if !bc.VerifyTransaction(tx) {
+			panic("ERROR: Invalid transaction")
+		}
+	}
+
 	err := bc.Db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blocksBucket))
 		lastHash = b.Get([]byte("l"))
@@ -44,6 +53,23 @@ func (bc *Blockchain) AddBlock(transactions []*Transaction) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (bc *Blockchain) FindTransaction(ID []byte) (Transaction, error) {
+	bci := bc.Iterator()
+
+	for {
+		block := bci.Next()
+		for _, tx := range block.Transactions {
+			if bytes.Equal(tx.ID, ID) {
+				return *tx, nil
+			}
+		}
+		if len(block.PrevBlockHash) == 0 {
+			break
+		}
+	}
+	return Transaction{}, fmt.Errorf("Transaction not found")
 }
 
 func (bc *Blockchain) FindUnspentTransactions(publicKeyHash []byte) []Transaction {
@@ -205,4 +231,28 @@ func (bc *Blockchain) Iterator() *BlockchainIterator {
 	   After getting a tip we can reconstruct the whole blockchain.
 	   So a tip is a kind of an identifier of a blockchain.
 	*/
+}
+
+func (bc *Blockchain) SignTransaction(tx *Transaction, privateKey ecdsa.PrivateKey) {
+	prevTXs := make(map[string]Transaction)
+	for _, vin := range tx.Vin {
+		prevTX, err := bc.FindTransaction(vin.Txid)
+		if err != nil {
+			panic(err)
+		}
+		prevTXs[hex.EncodeToString(prevTX.ID)] = prevTX
+	}
+	tx.Sign(privateKey, prevTXs)
+}
+
+func (bc *Blockchain) VerifyTransaction(tx *Transaction) bool {
+	prevTXs := make(map[string]Transaction)
+	for _, vin := range tx.Vin {
+		prevTX, err := bc.FindTransaction(vin.Txid)
+		if err != nil {
+			panic(err)
+		}
+		prevTXs[hex.EncodeToString(prevTX.ID)] = prevTX
+	}
+	return tx.Verify(prevTXs)
 }

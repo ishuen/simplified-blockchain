@@ -63,7 +63,15 @@ This is a practice project based on the tutorial [Building Blockchain in Go](htt
     Hash: 000000dd9c976918deb937b19bc6f87894efb92a5a26ba92abee7b4dbbd999a1
     PoW: true
     ```
+- Create Wallet
+    - Create a new wallet and generate a new address
+    - syntax: `createwallet`
+    ```
+    go run . createwallet
 
+    // Sample output
+    Your new address: 1J2zP3eP5QGefi2DMPTfTL5SLmv7DivfNb
+    ```
 
 ## Data persistence
 
