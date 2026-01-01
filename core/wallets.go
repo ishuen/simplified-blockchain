@@ -39,29 +39,28 @@ func (ws Wallets) GetWallet(address string) Wallet {
 
 func (ws *Wallets) LoadFromFile() error {
 	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
-		return err
+		return nil
 	}
 	fileContent, err := os.ReadFile(walletFile)
 	if err != nil {
 		return err
 	}
 	err = json.Unmarshal(fileContent, ws)
-	if err != nil {
-		panic(err)
-	}
-	return nil
+    if err != nil {
+        return err
+    }
+
+    return nil
 }
 
-func (ws Wallets) SaveToFile() error {
+func (ws Wallets) SaveToFile() {
 	jsonData, err := json.Marshal(ws)
-	if err != nil {
-		return err
-	}
+    if err != nil {
+        panic(err)
+    }
 
-	// file mode 0644: owner can read/write, group and others can read
-	err = os.WriteFile(walletFile, jsonData, 0644)
-	if err != nil {
-		return err
-	}
-	return nil
+    err = os.WriteFile(walletFile, jsonData, 0666)
+    if err != nil {
+        panic(err)
+    }
 }

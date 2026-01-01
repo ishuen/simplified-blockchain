@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 
 	"golang.org/x/crypto/ripemd160"
 )
@@ -85,4 +86,20 @@ func checksum(payload []byte) []byte {
 	firstSHA := sha256.Sum256(payload)
 	secondSHA := sha256.Sum256(firstSHA[:])
 	return secondSHA[:addressChecksumLen]
+}
+
+func (w Wallet) MarshalJSON() ([]byte, error) {
+    mapStringAny := map[string]any{
+        "PrivateKey": map[string]any{
+            "D": w.PrivateKey.D,
+            "PublicKey": map[string]any{
+                "X": w.PrivateKey.PublicKey.X,
+                "Y": w.PrivateKey.PublicKey.Y,
+            },
+            "X": w.PrivateKey.X,
+            "Y": w.PrivateKey.Y,
+        },
+        "PublicKey": w.PublicKey,
+    }
+    return json.Marshal(mapStringAny)
 }

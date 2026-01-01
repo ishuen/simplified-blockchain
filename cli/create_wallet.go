@@ -8,10 +8,7 @@ import (
 func (cli *CLI) createWallet() {
 	wallets, _ := core.NewWallets()
 	address := wallets.CreateWallet()
-	err := wallets.SaveToFile()
-	if err != nil {
-		panic(err)
-	}
+	wallets.SaveToFile()
 
 	fmt.Printf("Your new address: %s\n", address)
 }

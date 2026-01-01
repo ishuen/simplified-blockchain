@@ -73,6 +73,14 @@ This is a practice project based on the tutorial [Building Blockchain in Go](htt
     Your new address: 1J2zP3eP5QGefi2DMPTfTL5SLmv7DivfNb
     ```
 
+- Reindex UTXO set
+    - Rebuilds the UTXO (unspent transaction outputs) database from the blockchain.
+    - syntax: `reindexutxo`
+    - example:
+        ```
+        go run . reindexutxo 
+        ```
+
 ## Data persistence
 
 BoltDB is used for data persistence. When the program starts running for the first time, a file **blockchain.db** is created.
