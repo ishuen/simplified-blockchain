@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"log"
 
 	"github.com/boltdb/bolt"
 )
@@ -18,7 +19,7 @@ type Blockchain struct {
 	Db  *bolt.DB
 }
 
-func (bc *Blockchain) MineBlock(transactions []*Transaction) {
+func (bc *Blockchain) MineBlock(transactions []*Transaction) *Block {
 	var lastHash []byte
 
 	for _, tx := range transactions {
@@ -53,6 +54,7 @@ func (bc *Blockchain) MineBlock(transactions []*Transaction) {
 	if err != nil {
 		panic(err)
 	}
+	return newBlock
 }
 
 func (bc *Blockchain) FindTransaction(ID []byte) (Transaction, error) {
@@ -61,11 +63,13 @@ func (bc *Blockchain) FindTransaction(ID []byte) (Transaction, error) {
 	for {
 		block := bci.Next()
 		for _, tx := range block.Transactions {
+			log.Println("Searching TX ID:", tx.ID, "target: ", ID)
 			if bytes.Equal(tx.ID, ID) {
 				return *tx, nil
 			}
 		}
 		if len(block.PrevBlockHash) == 0 {
+			log.Println("Reached genesis block")
 			break
 		}
 	}
@@ -272,6 +276,10 @@ func (bc *Blockchain) SignTransaction(tx *Transaction, privateKey ecdsa.PrivateK
 }
 
 func (bc *Blockchain) VerifyTransaction(tx *Transaction) bool {
+	if tx.IsCoinbase() {
+		return true
+	}
+
 	prevTXs := make(map[string]Transaction)
 	for _, vin := range tx.Vin {
 		prevTX, err := bc.FindTransaction(vin.Txid)

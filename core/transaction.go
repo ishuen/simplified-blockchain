@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"log"
 )
 
 const subsidy = 10 // amound of reward for mining a block
@@ -42,8 +43,10 @@ func (tx *Transaction) Serialize() []byte {
 func (tx *Transaction) Hash() []byte {
 	var hash [32]byte
 
-	(*tx).ID = []byte{}
-	hash = sha256.Sum256(tx.Serialize())
+	txCopy := *tx
+	txCopy.ID = []byte{}
+
+	hash = sha256.Sum256(txCopy.Serialize())
 	return hash[:]
 }
 
@@ -61,9 +64,9 @@ func (tx *Transaction) Sign(privateKey ecdsa.PrivateKey, prevTXs map[string]Tran
 	for inIdx, in := range txCopy.Vin {
 		prevTx := prevTXs[hex.EncodeToString(in.Txid)]
 		txCopy.Vin[inIdx].Signature = nil
-		txCopy.Vin[inIdx].PublicKey = prevTx.Vout[in.Vout].PubKeyHash
+		txCopy.Vin[inIdx].PubKey = prevTx.Vout[in.Vout].PubKeyHash
 		txCopy.ID = txCopy.Hash()
-		txCopy.Vin[inIdx].PublicKey = nil
+		txCopy.Vin[inIdx].PubKey = nil
 
 		r, s, err := ecdsa.Sign(rand.Reader, &privateKey, txCopy.ID)
 		if err != nil {
@@ -98,7 +101,7 @@ func (tx *Transaction) String() string {
 		lines = append(lines, fmt.Sprintf("       TXID:      %x", input.Txid))
 		lines = append(lines, fmt.Sprintf("       Out:       %d", input.Vout))
 		lines = append(lines, fmt.Sprintf("       Signature: %x", input.Signature))
-		lines = append(lines, fmt.Sprintf("       PubKey:    %x", input.PublicKey))
+		lines = append(lines, fmt.Sprintf("       PubKey:    %x", input.PubKey))
 	}
 
 	for i, output := range tx.Vout {
@@ -125,9 +128,9 @@ func (tx *Transaction) Verify(prevTXs map[string]Transaction) bool {
 	for inIdx, in := range tx.Vin {
 		prevTx := prevTXs[hex.EncodeToString(in.Txid)]
 		txCopy.Vin[inIdx].Signature = nil
-		txCopy.Vin[inIdx].PublicKey = prevTx.Vout[in.Vout].PubKeyHash
+		txCopy.Vin[inIdx].PubKey = prevTx.Vout[in.Vout].PubKeyHash
 		txCopy.ID = txCopy.Hash()
-		txCopy.Vin[inIdx].PublicKey = nil
+		txCopy.Vin[inIdx].PubKey = nil
 
 		r := big.Int{}
 		s := big.Int{}
@@ -137,12 +140,14 @@ func (tx *Transaction) Verify(prevTXs map[string]Transaction) bool {
 
 		x := big.Int{}
 		y := big.Int{}
-		keyLen := len(in.PublicKey)
-		x.SetBytes(in.PublicKey[:(keyLen / 2)])
-		y.SetBytes(in.PublicKey[(keyLen / 2):])
+		keyLen := len(in.PubKey)
+		x.SetBytes(in.PubKey[:(keyLen / 2)])
+		y.SetBytes(in.PubKey[(keyLen / 2):])
 
 		publicKey := ecdsa.PublicKey{Curve: curve, X: &x, Y: &y}
+		log.Println("Public Key", publicKey)
 		if !ecdsa.Verify(&publicKey, txCopy.ID, &r, &s) {
+			log.Println("WARNING: Signature verification failed")
 			return false
 		}
 	}
@@ -155,7 +160,14 @@ It is used to reward miners for mining a new block.
 */
 func NewCoinbaseTX(to, data string) *Transaction {
 	if data == "" {
-		data = fmt.Sprintf("Reward to '%s'", to)
+		log.Println("Creating coinbase transaction...")
+		randData := make([]byte, 20)
+		_, err := rand.Read(randData)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		data = fmt.Sprintf("%x", randData)
 	}
 	txin := TXInput{[]byte{}, -1, nil, []byte(data)} // coinbase has no previous transaction
 	txout := NewTXOutput(subsidy, to)
@@ -165,7 +177,7 @@ func NewCoinbaseTX(to, data string) *Transaction {
 }
 
 // UTXO = Unspent Transaction Output
-func NewUTXOTransaction(from, to string, amount int, bc *Blockchain) *Transaction {
+func NewUTXOTransaction(from, to string, amount int, UTXOSet *UTXOSet) *Transaction {
 	var inputs []TXInput
 	var outputs []TXOutput
 
@@ -176,7 +188,7 @@ func NewUTXOTransaction(from, to string, amount int, bc *Blockchain) *Transactio
 
 	wallet := wallets.GetWallet(from)
 	publicKeyHash := HashPubKey(wallet.PublicKey)
-	acc, validOutputs := bc.FindSpendableOutputs(publicKeyHash, amount)
+	acc, validOutputs := UTXOSet.FindSpendableOutputs(publicKeyHash, amount)
 	if acc < amount {
 		panic("ERROR: Not enough funds")
 	}
@@ -201,5 +213,6 @@ func NewUTXOTransaction(from, to string, amount int, bc *Blockchain) *Transactio
 
 	tx := Transaction{nil, inputs, outputs}
 	tx.ID = tx.Hash()
+	UTXOSet.Blockchain.SignTransaction(&tx, wallet.PrivateKey)
 	return &tx
 }

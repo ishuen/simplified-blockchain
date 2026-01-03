@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"os"
+	"crypto/elliptic"
 )
 
 const walletFile = "wallet.dat"
@@ -34,7 +35,9 @@ func (ws *Wallets) GetAddresses() []string {
 }
 
 func (ws Wallets) GetWallet(address string) Wallet {
-	return *ws.Wallets[address]
+	wallet := *ws.Wallets[address]
+	wallet.PrivateKey.PublicKey.Curve = elliptic.P256()
+	return wallet
 }
 
 func (ws *Wallets) LoadFromFile() error {
